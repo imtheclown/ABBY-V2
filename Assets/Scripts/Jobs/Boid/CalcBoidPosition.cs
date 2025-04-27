@@ -2,7 +2,9 @@ using Unity.Entities;
 using Unity.Collections;
 using Unity.Transforms;
 using Unity.Mathematics;
+using Unity.Burst;
 
+[BurstCompile]
 public partial struct CalcBoidPosition : IJobEntity {
     [ReadOnly] public float td;
     [ReadOnly] public float leftLimit;
@@ -15,7 +17,7 @@ public partial struct CalcBoidPosition : IJobEntity {
 
     public Random RandomGenerator;
 
-    public void Execute (ref BoidAgentMovement boidAgentMovement, ref LocalTransform localTransform){
+    public void Execute (ref BoidAgentMovement boidAgentMovement, ref LocalTransform localTransform, in CommodityBioInfo bioInfo){
         float3 pos = localTransform.Position;
 
         float3 futureDir = boidAgentMovement.futureDirection;
@@ -47,7 +49,7 @@ public partial struct CalcBoidPosition : IJobEntity {
         futureDir.y *= 0.8f;
 
         boidAgentMovement.direction = futureDir;
-        float3 newPosition =  (futureDir * td * 2) + pos;
+        float3 newPosition =  (futureDir * td * CalcMovementSpeed(1, bioInfo.hungerLevel)) + pos;
 
         // Clamp the position to ensure the boid stays within the defined limits
         newPosition.x = math.clamp(newPosition.x, leftLimit - 1, rightLimit + 1);
@@ -58,5 +60,13 @@ public partial struct CalcBoidPosition : IJobEntity {
         localTransform.Rotation = quaternion.LookRotationSafe(new float3(futureDir), math.up());
         boidAgentMovement.currentPos = newPosition;
         boidAgentMovement.futureDirection = futureDir;
+    }
+
+        float CalcMovementSpeed(float baseSpeed, float hungerLevel)
+    {
+        const float hungerMovementBoost = 0.5f; // 50% more movement when starving
+        hungerLevel = math.clamp(hungerLevel, 0f, 1f);
+
+        return baseSpeed * (1f + hungerLevel * hungerMovementBoost);
     }
 }

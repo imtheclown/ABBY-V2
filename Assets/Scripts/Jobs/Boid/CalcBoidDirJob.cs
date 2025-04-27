@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
+[BurstCompile]
 public partial struct CalcBoidDirJob: IJobEntity{
     [ReadOnly] public NativeParallelMultiHashMap<int, BoidAgentMovement> boidMovementHashMap;
     [ReadOnly] public float cellSize;
