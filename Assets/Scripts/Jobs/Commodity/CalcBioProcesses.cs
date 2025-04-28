@@ -1,52 +1,62 @@
-
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
+using Unity.Collections.LowLevel.Unsafe;
+using System.Threading;
 
 [BurstCompile]
-public partial struct CaclBioProcesses: IJobEntity{
+public partial struct CaclBioProcessesJob : IJobEntity
+{
     [ReadOnly] public float temperature;
+    public NativeArray<int> remainingOxygen; // Oxygen stored as milligrams (mg/L * 1000)
     public EntityCommandBuffer.ParallelWriter ecb;
 
-    public void Execute(ref CommodityBioInfo bioInfo){
+    public void Execute(Entity entity, [EntityIndexInQuery] int entityIndex, ref CommodityBioInfo bioInfo)
+    {
         float tempFactor = CalcTemperatureFactor(temperature);
-        float activityFactor = CalcActivityFactor(bioInfo.hungerLevel); // (optional, based on hunger or digestion)
+        float activityFactor = CalcActivityFactor(bioInfo.hungerLevel);
+
         float oxygenConsumption = GetBaseOxygenRate(bioInfo.weight) * bioInfo.weight * tempFactor * activityFactor;
+        int oxygenToSubtract = (int)(oxygenConsumption * 1000f); // Convert to mg * 1000
+
+        // Atomically subtract oxygen
+        SubtractOxygenAtomic(oxygenToSubtract);
+
+        // If no more oxygen, shrimp dies
+        if (remainingOxygen[0] <= 0)
+        {
+            ecb.DestroyEntity(entityIndex, entity);
+        }
     }
 
     float CalcTemperatureFactor(float temp)
     {
-        // Example: faster metabolism at hotter temps
         if (temp < 20f) return 0.7f;
         if (temp < 28f) return 1.0f;
         if (temp <= 32f) return 1.2f;
-        return 1.4f; // Hotter = more stress
+        return 1.4f;
     }
 
     float GetBaseOxygenRate(float weight)
     {
-        //measure (mg O₂/g/hour)
-        if (weight < 1f) // Postlarvae stage
-        {
-            return 0.65f; // Average of 0.5 - 0.8
-        }
-        else if (weight < 10f) // Juvenile stage
-        {
-            return 0.4f; // Average of 0.3 - 0.5
-        }
-        else // Adult stage
-        {
-            return 0.3f; // Average of 0.2 - 0.4
-        }
+        if (weight < 1f) return 0.65f;   // Postlarvae
+        else if (weight < 10f) return 0.4f; // Juvenile
+        else return 0.3f;                // Adult
     }
 
     float CalcActivityFactor(float hungerLevel)
     {
-        // Clamp HungerLevel between 0 and 1 to be safe
         hungerLevel = math.clamp(hungerLevel, 0f, 1f);
-
         return 0.8f + (hungerLevel * 0.4f);
+    }
+
+    void SubtractOxygenAtomic(int oxygenToSubtract)
+    {
+        unsafe
+        {
+            int* oxygenPtr = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(remainingOxygen);
+            Interlocked.Add(ref oxygenPtr[0], -oxygenToSubtract);
+        }
     }
 }

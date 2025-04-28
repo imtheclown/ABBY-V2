@@ -251,7 +251,7 @@ MonoBehaviour:
   centeringFactor: 0.0005
   matchingFactor: 0.05
   avoidFactor: 0.05
-  startingBoidCount: 500
+  startingBoidCount: 100
   agentPrefab: {fileID: 107224271079861578, guid: 47a910d118b7560438e9a2e2e29bf944,
     type: 3}
   criticalRange: 0.3

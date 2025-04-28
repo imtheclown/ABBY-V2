@@ -49,7 +49,8 @@ public partial struct CalcBoidPosition : IJobEntity {
         futureDir.y *= 0.8f;
 
         boidAgentMovement.direction = futureDir;
-        float3 newPosition =  (futureDir * td * CalcMovementSpeed(1, bioInfo.hungerLevel)) + pos;
+        // float3 newPosition =  (futureDir * td * CalcMovementSpeed(1, bioInfo.hungerLevel)) + pos;
+        float3 newPosition =  (futureDir * td * 2) + pos;
 
         // Clamp the position to ensure the boid stays within the defined limits
         newPosition.x = math.clamp(newPosition.x, leftLimit - 1, rightLimit + 1);
